@@ -1,0 +1,33 @@
+{
+  "transactions": 193,
+  "incomeCount": 28,
+  "incomeTotal": 6835.6,
+  "expenseCount": 165,
+  "expenseTotal": 8158.68,
+  "duplicates": 3,
+  "otherMessages": 13,
+  "first": "2026-04-01",
+  "last": "2026-04-30",
+  "topMerchant": "REWE Markt",
+  "topMerchantTotal": 1831.25,
+  "names": [
+    "ALDI SÜD",
+    "Amazon EU",
+    "Anna Schmidt",
+    "Apotheke am Markt",
+    "Aral Tankstelle",
+    "Bäckerei Schmidt",
+    "Deutsche Bahn",
+    "IKEA",
+    "Kino Cinemaxx",
+    "Lidl",
+    "Lieferando",
+    "Lukas Weber",
+    "Max Mustermann",
+    "Muster GmbH (Gehalt)",
+    "REWE Markt",
+    "Telekom Deutschland GmbH"
+  ],
+  "topDay": "2026-04-13",
+  "topDayTotal": 657.39
+}

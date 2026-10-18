@@ -1,0 +1,109 @@
+# =============================================================================
+#  SMS FORMATS  -  teach the analyzer how YOUR bank's messages look
+# =============================================================================
+#
+#  Copy one real SMS from your bank, paste it below a [template: ...] header and
+#  replace the parts that change with placeholders. That's it - works in any language.
+#
+#  PLACEHOLDERS
+#    {amount}       transaction amount   (+/- sign, currency symbol/code allowed: -$1,234.56  12,50 EUR  400,000 ریال)
+#    {balance}      balance after the transaction        {available}  available balance
+#    {fee}          bank fee                             {currency}   EUR, $, ریال, ...
+#    {type}         a word such as "debited", "Gutschrift", "برداشت" (decides income / expense)
+#    {merchant}     shop / payee name                    {person}     sender / recipient name
+#    {desc}         description                          {bank}       bank name
+#    {account}      account / card number                {ref} {tracking}  reference numbers
+#    {date}         any common date, or with a format: {date:dd.mm.yyyy}  {date:mm/dd/yyyy}
+#                   {date:yyyy-mm-dd}  {date:d mmm yyyy} (month name)  {date:yy/mm/dd}
+#    {time}         14:32  2:32 PM  14.32  14h32
+#    {skip}         ignore anything up to the next part (same line)     {*}  ignore anything (multi-line)
+#
+#  RULES
+#    * Spaces and line breaks are flexible, upper/lower case is ignored,
+#      Persian/Arabic digits are understood.
+#    * [[ ... ]]  marks an OPTIONAL part, e.g.  [[bei {merchant}]]
+#    * {{ and }}  are literal braces.  Lines starting with # are comments (\# for a literal #).
+#    * Every template needs at least an {amount}.
+#
+#  OPTIONS (lines right after the header, all optional)
+#    @language:   fa / en / de / ...  (fa makes 2-digit years Jalali)
+#    @calendar:   jalali | gregorian
+#    @date-order: dmy | mdy | ymd     (only for {date} without a format)
+#    @decimal:    ,  or  .            (decimal separator of the amounts)
+#    @currency:   EUR / USD / IRR / toman ...  (when the SMS doesn't say)
+#    @direction:  in | out            (when the SMS has no sign and no type word)
+#    @bank:       name to use when the SMS doesn't contain it
+#    @in:  word, word                 extra words meaning money came IN
+#    @out: word, word                 extra words meaning money went OUT
+#
+#  SMS that match no template are still parsed by the built-in label reader
+#  ("Amount: ...", "Balance: ...", "مبلغ: ...", "Kontostand: ...") - templates are
+#  only needed for free-text messages.
+# =============================================================================
+
+
+[template: Persian bank (labelled lines)]
+@language: fa
+@calendar: jalali
+{type}
+مبلغ : {amount}
+موجودی : {balance}
+[[شماره پیگیری : {tracking}]]
+[[فروشگاه {merchant}]]
+[[گیرنده : {person}]]
+[[واریز کننده : {person}]]
+تاریخ : {date:d/m/yyyy} {time}
+
+
+[template: US card alert]
+@language: en
+@calendar: gregorian
+@currency: USD
+{bank}: Your card ending {account} was {type} {amount} at {merchant} on {date:mm/dd/yyyy} {time}. Avail bal: {balance}
+
+
+[template: US deposit]
+@language: en
+@currency: USD
+{bank}: A {type} of {amount} from {person} was credited to your account ending {account} on {date:mm/dd/yyyy} {time}. Avail bal: {balance}
+
+
+[template: US transfer sent]
+@language: en
+@currency: USD
+@direction: out
+{bank}: You sent {amount} to {person} [[with {desc}]] on {date:mm/dd/yyyy} {time}. Avail bal: {balance}
+
+
+[template: German push message]
+@language: de
+@currency: EUR
+@decimal: ,
+{bank}: {type} {amount} [[bei {merchant}]] [[von {person}]] [[an {person}]] am {date:dd.mm.yyyy} um {time}. Kontostand: {balance}
+
+
+# --- More examples (remove the # to use them) --------------------------------
+#
+# [template: Spanish card purchase]
+# @language: es
+# @decimal: ,
+# @currency: EUR
+# {bank}: Compra con tarjeta {account} por {amount} en {merchant} el {date:dd/mm/yyyy} a las {time}. Saldo: {balance}
+#
+# [template: Indian bank debit]
+# @currency: INR
+# @date-order: dmy
+# {amount} debited from A/c {account} on {date} to {person}. Avl Bal {balance}. Ref {ref}
+#
+# [template: Turkish card spending]
+# @language: tr
+# @decimal: ,
+# @currency: TRY
+# @direction: out
+# {bank}: {date:dd.mm.yyyy} {time} tarihinde {account} kartınızla {merchant} işyerinden {amount} harcama yapılmıştır.
+
+
+[keywords]
+# Extra words (comma separated) that mean money IN or OUT, in any language.
+in: Lohn, prime
+out: Abbuchung SEPA

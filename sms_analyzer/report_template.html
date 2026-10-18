@@ -1,0 +1,892 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bank SMS Report</title>
+<style>
+:root {
+  color-scheme: light;
+  --page: #f9f9f7; --surface: #fcfcfb; --surface-2: #f1f0ec; --ink: #0b0b0b; --ink-2: #52514e;
+  --muted: #898781; --grid: #e1e0d9; --axis: #c3c2b7; --border: rgba(11,11,11,0.10);
+  --income: #2a78d6; --expense: #eb6834;
+  --acc-1: #4a3aa7; --acc-2: #1baf7a; --acc-3: #eda100;
+  --good: #0ca30c; --good-text: #006300; --critical: #d03b3b; --warning: #fab219;
+  --shadow: 0 1px 2px rgba(0,0,0,.04), 0 4px 16px rgba(0,0,0,.04);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --page: #0d0d0d; --surface: #1a1a19; --surface-2: #242422; --ink: #ffffff; --ink-2: #c3c2b7;
+    --muted: #898781; --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
+    --income: #3987e5; --expense: #d95926; --acc-1: #9085e9; --acc-2: #199e70; --acc-3: #c98500;
+    --good-text: #0ca30c; --shadow: none;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0d0d0d; --surface: #1a1a19; --surface-2: #242422; --ink: #ffffff; --ink-2: #c3c2b7;
+  --muted: #898781; --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
+  --income: #3987e5; --expense: #d95926; --acc-1: #9085e9; --acc-2: #199e70; --acc-3: #c98500;
+  --good-text: #0ca30c; --shadow: none;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--page); color: var(--ink);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, Tahoma, sans-serif;
+  font-size: 15px; line-height: 1.6;
+}
+html[lang="fa"] body { font-family: Vazirmatn, "Vazir", "Segoe UI", Tahoma, system-ui, sans-serif; line-height: 1.7; }
+.page { max-width: 1240px; margin: 0 auto; padding: 24px 16px 64px; }
+header.top { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; justify-content: space-between; margin-bottom: 20px; }
+h1 { font-size: 26px; margin: 0; font-weight: 700; letter-spacing: -.2px; }
+.sub { color: var(--ink-2); font-size: 14px; margin-top: 4px; }
+.controls { display: flex; flex-wrap: wrap; gap: 8px; }
+.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--surface); }
+.seg button, .btn { font: inherit; font-size: 13px; border: 0; background: transparent; color: var(--ink-2); padding: 6px 12px; cursor: pointer; }
+.seg[hidden] { display: none; }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--surface); }
+.btn { border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+.btn:hover, .seg button:hover:not([aria-pressed="true"]) { background: var(--surface-2); }
+.btn:disabled { opacity: .45; cursor: default; }
+section.card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 20px; margin-bottom: 16px; box-shadow: var(--shadow); min-width: 0; }
+.card h2 { font-size: 17px; margin: 0 0 2px; font-weight: 700; }
+.card .hint { color: var(--muted); font-size: 13px; margin: 0 0 14px; }
+.card-head { display: flex; flex-wrap: wrap; gap: 8px 16px; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+.grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-bottom: 16px; }
+.grid2 > section.card { margin-bottom: 0; }
+
+.kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 12px; }
+.kpi { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 16px 18px; box-shadow: var(--shadow); min-width: 0; container-type: inline-size; }
+.kpi .label { color: var(--ink-2); font-size: 13px; display: flex; align-items: center; gap: 6px; }
+.kpi .value { font-size: clamp(16px, 8.6cqi, 28px); font-weight: 700; margin-top: 2px; white-space: nowrap; }
+.kpi .value small, .unit { font-size: 13px; font-weight: 400; color: var(--muted); margin-inline-start: 4px; }
+.kpi .meta { color: var(--muted); font-size: 12.5px; }
+.sw { display: inline-block; width: 10px; height: 10px; border-radius: 3px; flex: none; }
+.sw.in { background: var(--income); } .sw.out { background: var(--expense); }
+.stats { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
+.stat { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 10px 14px; min-width: 0; }
+.stat .label { color: var(--muted); font-size: 12px; }
+.stat .value { font-size: 17px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pos { color: var(--good-text); } .neg { color: var(--critical); }
+
+.insights { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 24px; }
+.insights li { display: flex; gap: 10px; align-items: baseline; padding: 6px 0; border-bottom: 1px solid var(--grid); }
+.insights li .ic { flex: none; width: 22px; height: 22px; border-radius: 50%; display: inline-grid; place-items: center; font-size: 12px; background: var(--surface-2); color: var(--ink-2); transform: translateY(3px); }
+.insights li.good .ic { background: color-mix(in oklab, var(--good) 18%, transparent); color: var(--good-text); }
+.insights li.bad .ic { background: color-mix(in oklab, var(--critical) 18%, transparent); color: var(--critical); }
+.insights b { font-weight: 700; }
+.warn { border-color: color-mix(in oklab, var(--warning) 55%, var(--border)); }
+.warn ul, .about ul { margin: 0; padding-inline-start: 20px; color: var(--ink-2); }
+
+.chart { position: relative; width: 100%; direction: ltr; }
+.chart svg { display: block; width: 100%; overflow: visible; }
+.chart text { fill: var(--muted); font-size: 11px; font-family: inherit; }
+.chart .grid line { stroke: var(--grid); stroke-width: 1; shape-rendering: crispEdges; }
+.chart .base { stroke: var(--axis); stroke-width: 1; shape-rendering: crispEdges; }
+.chart .hit { fill: transparent; cursor: crosshair; }
+.chart .hl { fill: var(--ink); opacity: .05; pointer-events: none; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 13px; color: var(--ink-2); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.ln { width: 16px; height: 3px; border-radius: 2px; display: inline-block; }
+.empty { color: var(--muted); padding: 24px 0; text-align: center; }
+
+#tip { position: fixed; z-index: 50; pointer-events: none; opacity: 0; transition: opacity .08s; background: var(--surface); color: var(--ink);
+  border: 1px solid var(--border); border-radius: 10px; padding: 8px 12px; font-size: 13px; line-height: 1.6; box-shadow: 0 6px 24px rgba(0,0,0,.14); min-width: 170px; max-width: 320px; }
+#tip .t { font-weight: 700; margin-bottom: 2px; }
+#tip .r { display: flex; justify-content: space-between; gap: 16px; align-items: center; }
+#tip .r span:first-child { display: inline-flex; align-items: center; gap: 6px; color: var(--ink-2); }
+
+.hbars { display: flex; flex-direction: column; gap: 8px; }
+.hb { display: grid; grid-template-columns: minmax(90px, var(--name-w, 34%)) minmax(0, 1fr) auto; gap: 10px; align-items: center; font-size: 13.5px; }
+.hb .nm { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hb .nm small { color: var(--muted); }
+.hb .tr { height: 14px; background: var(--surface-2); border-radius: 4px; overflow: hidden; }
+.hb .fl { height: 100%; border-radius: 4px; background: var(--expense); min-width: 2px; }
+.hb .fl.in { background: var(--income); }
+.hb .vl { white-space: nowrap; color: var(--ink-2); font-variant-numeric: tabular-nums; text-align: end; min-width: 92px; }
+.hb:hover .nm { font-weight: 700; }
+.rank { display: inline-block; width: 1.7em; color: var(--muted); }
+
+.cals { display: flex; flex-wrap: wrap; gap: 20px; }
+.cal { flex: 1 1 240px; max-width: 330px; }
+.cal .mh { font-weight: 700; font-size: 14px; margin-bottom: 6px; }
+.cal .g { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+.cal .wd { font-size: 11px; color: var(--muted); text-align: center; }
+.cal .c { aspect-ratio: 1; border-radius: 5px; display: grid; place-items: center; font-size: 11.5px; background: var(--surface-2); color: var(--ink-2); }
+.cal .c.blank { background: transparent; }
+.cal .c.l1, .scale .l1 { background: color-mix(in oklab, var(--expense) 18%, var(--surface-2)); }
+.cal .c.l2, .scale .l2 { background: color-mix(in oklab, var(--expense) 38%, var(--surface-2)); color: var(--ink); }
+.cal .c.l3, .scale .l3 { background: color-mix(in oklab, var(--expense) 62%, var(--surface-2)); color: #fff; }
+.cal .c.l4, .scale .l4 { background: var(--expense); color: #fff; font-weight: 700; }
+.cal .c:hover { outline: 2px solid var(--ink); outline-offset: -1px; }
+.scale { display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--muted); margin-top: 10px; }
+.scale i { width: 14px; height: 14px; border-radius: 3px; display: inline-block; background: var(--surface-2); }
+
+.tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
+.tools input, .tools select { font: inherit; font-size: 13px; padding: 6px 10px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface); color: var(--ink); min-width: 0; }
+.tools input[type=search] { flex: 1 1 200px; }
+.tools input.d { width: 120px; direction: ltr; text-align: center; }
+.tbl-wrap { overflow: auto; border: 1px solid var(--border); border-radius: 12px; }
+table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+th, td { padding: 8px 10px; text-align: start; border-bottom: 1px solid var(--grid); white-space: nowrap; }
+th { font-weight: 700; color: var(--ink-2); background: var(--surface-2); position: sticky; top: 0; font-size: 12.5px; z-index: 1; }
+th.sortable { cursor: pointer; user-select: none; }
+th.sortable::after { content: " ↕"; color: var(--muted); font-weight: 400; }
+th.sorted-asc::after { content: " ▲"; color: var(--ink); }
+th.sorted-desc::after { content: " ▼"; color: var(--ink); }
+tbody tr:hover td { background: color-mix(in oklab, var(--ink) 3%, transparent); }
+td.num { font-variant-numeric: tabular-nums; }
+td.long { white-space: normal; min-width: 140px; }
+tr.clickable { cursor: pointer; }
+tr.raw td { background: var(--surface-2); white-space: pre-wrap; font-size: 12.5px; color: var(--ink-2); unicode-bidi: plaintext; }
+.badge { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; padding: 1px 8px; border-radius: 99px; background: var(--surface-2); color: var(--ink-2); }
+.badge.in::before, .badge.out::before { content: ""; width: 8px; height: 8px; border-radius: 2px; }
+.badge.in::before { background: var(--income); } .badge.out::before { background: var(--expense); }
+.share { display: inline-block; width: 60px; height: 6px; border-radius: 3px; background: var(--surface-2); vertical-align: middle; margin-inline-start: 6px; overflow: hidden; }
+.share i { display: block; height: 100%; background: var(--expense); }
+.pager { display: flex; gap: 8px; align-items: center; justify-content: center; margin-top: 10px; font-size: 13px; color: var(--ink-2); }
+details { margin-top: 8px; }
+details summary { cursor: pointer; color: var(--ink-2); font-size: 14px; }
+details pre { white-space: pre-wrap; background: var(--surface-2); border-radius: 10px; padding: 10px 12px; font-family: inherit; font-size: 12.5px; margin: 8px 0; color: var(--ink-2); unicode-bidi: plaintext; }
+details pre .lnr { color: var(--muted); font-size: 11px; display: block; }
+footer { color: var(--muted); font-size: 12.5px; text-align: center; margin-top: 24px; }
+
+@media (max-width: 1000px) { .stats { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 860px) {
+  .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .grid2, .insights { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 520px) {
+  .page { padding: 16px 16px 48px; }
+  h1 { font-size: 21px; }
+  .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .hb { grid-template-columns: minmax(0, 1fr) auto; }
+  .hb .tr { grid-column: 1 / -1; grid-row: 2; }
+  section.card { padding: 16px; }
+}
+@media print {
+  body { background: #fff; }
+  .controls, .tools, .pager, #tip { display: none !important; }
+  section.card, .kpi, .stat { box-shadow: none; break-inside: avoid; }
+}
+@media (forced-colors: active) { .hb .fl, .sw, .badge::before { forced-color-adjust: none; } }
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="top">
+    <div>
+      <h1 id="title"></h1>
+      <div class="sub" id="period"></div>
+    </div>
+    <div class="controls">
+      <div class="seg" role="group" aria-label="Language"><button data-lang="en">English</button><button data-lang="fa">فارسی</button></div>
+      <div class="seg" role="group" id="calSeg"><button data-cal="gregorian"></button><button data-cal="jalali"></button></div>
+      <div class="seg" role="group" id="unitSeg" hidden><button data-unit="rial"></button><button data-unit="toman"></button></div>
+      <div class="seg" role="group" id="themeSeg"><button data-theme-btn="auto"></button><button data-theme-btn="light"></button><button data-theme-btn="dark"></button></div>
+      <button class="btn" id="csvBtn"></button>
+      <button class="btn" id="printBtn"></button>
+    </div>
+  </header>
+  <main id="app"></main>
+  <footer id="foot"></footer>
+</div>
+<div id="tip" role="tooltip"></div>
+
+<script>
+const DATA = /*__DATA__*/null;
+</script>
+<script>
+(function () {
+"use strict";
+const app = document.getElementById("app");
+if (!DATA) { app.innerHTML = '<p class="empty">No data. This file is the report template; run the Python analyzer.</p>'; return; }
+
+// ======================================================================= i18n
+const I18N = {
+  en: {
+    title: "Bank SMS Report", noDates: "No dated transactions", file: "File", days: "days",
+    gregorian: "Gregorian", jalali: "Jalali", rial: "Rial", toman: "Toman", auto: "Auto", light: "Light", dark: "Dark",
+    csv: "Download CSV", print: "Print / PDF",
+    income: "Income", expense: "Expenses", netPos: "▲ Net (income above expenses)", netNeg: "▼ Net (expenses above income)",
+    credits: "credits", debits: "debits", perDay: "≈ {v} per day", saved: "{p} of income saved", overspent: "{p} more than income spent",
+    endBalance: "Closing balance", start: "Start", lowest: "Lowest", noBalance: "The SMS contain no balance",
+    totalSms: "SMS in file", transactions: "Transactions", merchants: "Merchants", avgPurchase: "Average purchase",
+    activeDays: "Days with activity", otherDup: "Non-financial / duplicate", of: "of",
+    insights: "Insights", insightsHint: "Automatic summary of all transactions", warnings: "Notes about the data",
+    daily: "Daily income and expenses", dailyHint: "Bars above the line: money in · below the line: money out. Hover a day for details.",
+    topDays: "Most expensive days", topDaysHint: "The 10 days with the highest spending",
+    calendar: "Spending calendar", calendarHint: "Each square is a day; darker means more spending", less: "Less", more: "More",
+    balance: "Account balance", balanceHint: "Balance after each transaction, as reported in the SMS", onlyTop3: "Only the 3 most active accounts are shown.",
+    byMerchant: "Spending by merchant", byAmount: "Amount", byCount: "Count", merchantHint: "{n} different merchants · top 12 by {by}",
+    categories: "Spending categories", categoriesHint: "Detected automatically from merchant names",
+    weekday: "Spending by weekday", weekdayHint: "Average spending on each day of the week",
+    hourly: "Time of day", hourlyHint: "Number of purchases in each hour",
+    sources: "Income sources", sourcesHint: "Where the money came from", incomeTypes: "Income types",
+    monthly: "Monthly summary", month: "Month", net: "Net", count: "Transactions", amountsIn: "Amounts in {u}",
+    biggestExp: "Largest expenses", biggestInc: "Largest incomes", date: "Date", amount: "Amount", party: "Merchant / party",
+    allMerchants: "All merchants and parties", sortHint: "Click a column header to sort",
+    allTxns: "All transactions", txnsHint: "In date order · click a row to see the original SMS",
+    search: "Search: merchant, amount, reference...", searchM: "Search name or category...", all: "All", onlyIn: "Income only", onlyOut: "Expenses only",
+    unknown: "Unknown", allCats: "All categories", from: "From", to: "To", items: "{n} items",
+    txnSummary: "{n} transactions · in {i} · out {o}", dateTime: "Date & time", day: "Day", type: "Type", balanceCol: "Balance",
+    category: "Category", ref: "Reference", name: "Name", kind: "Kind", total: "Total", avg: "Average", max: "Largest", share: "Share", last: "Last",
+    credit: "Credit", debit: "Debit", plusFee: "+ fee {v}", line: "Line {n}", chainOk: "✓ balance verified", chainBad: "⚠ balance doesn't follow from the previous SMS",
+    viaTemplate: "template “{s}”", viaBuiltin: "built-in reader", prev: "Previous", next: "Next", page: "Page {p} of {n}",
+    others: "Messages set aside", othersHint: "SMS that were not transactions (OTP codes, ads, ...) or were duplicates",
+    nonFinancial: "Non-financial SMS", duplicates: "Duplicate SMS", otp: "OTP / code", no_amount: "No amount",
+    about: "How the SMS were read", aboutTpl: "{n} SMS matched the template “{s}”", aboutBuiltin: "{n} SMS were read by the built-in label reader",
+    store: "Merchant", person: "Person", other: "Other", unnamed: "Unnamed", mainAccount: "Main account", account: "account",
+    tipIn: "Income", tipOut: "Expenses", tipCount: "Transactions", tipTotal: "Total", tipCountN: "Count", tipAvg: "Average", tipMax: "Largest",
+    tipShare: "Share", tipFirstLast: "First / last", tipAvgDay: "Average per day", tipDaysInRange: "{w}s in range", hourRange: "{a}:00 – {b}:00",
+    footer: "Generated {d} · everything was processed on your computer, nothing was uploaded.",
+    empty: "Nothing here.",
+  },
+  fa: {
+    title: "گزارش مالی پیامک‌های بانکی", noDates: "تراکنش تاریخ‌دار پیدا نشد", file: "فایل", days: "روز",
+    gregorian: "میلادی", jalali: "شمسی", rial: "ریال", toman: "تومان", auto: "خودکار", light: "روشن", dark: "تیره",
+    csv: "دانلود CSV (اکسل)", print: "چاپ / PDF",
+    income: "درآمد کل (ورودی)", expense: "خرج کل (خروجی)", netPos: "▲ تراز مثبت (درآمد بیشتر از خرج)", netNeg: "▼ تراز منفی (خرج بیشتر از درآمد)",
+    credits: "واریز", debits: "برداشت", perDay: "روزانه حدود {v}", saved: "{p} درآمد پس‌انداز شده", overspent: "{p} بیشتر از درآمد خرج شده",
+    endBalance: "موجودی پایانی", start: "شروع", lowest: "کمترین", noBalance: "پیامک‌ها موجودی نداشتند",
+    totalSms: "کل پیامک‌ها", transactions: "تراکنش مالی", merchants: "تعداد فروشگاه‌ها", avgPurchase: "میانگین هر خرید",
+    activeDays: "روزهای دارای تراکنش", otherDup: "غیرمالی / تکراری", of: "از",
+    insights: "نتیجه‌گیری", insightsHint: "خلاصه‌ی خودکار از روی همه‌ی تراکنش‌ها", warnings: "نکته‌ها درباره‌ی داده",
+    daily: "ورودی و خروجی روزانه", dailyHint: "ستون‌های بالای خط: پول واریزی · پایین خط: پول خرج‌شده. روی هر روز نگه دارید تا جزئیات را ببینید.",
+    topDays: "روزهای پرخرج", topDaysHint: "۱۰ روزی که بیشترین پول خرج شده",
+    calendar: "تقویم خرج", calendarHint: "هر خانه یک روز؛ هرچه پررنگ‌تر، خرج بیشتر", less: "کم", more: "زیاد",
+    balance: "روند موجودی حساب", balanceHint: "موجودی بعد از هر تراکنش، طبق پیامک‌ها", onlyTop3: "فقط ۳ حساب پرتراکنش نمایش داده شده است.",
+    byMerchant: "بیشترین خرج به تفکیک فروشگاه", byAmount: "مبلغ", byCount: "تعداد", merchantHint: "{n} فروشگاه مختلف · ۱۲ مورد برتر بر اساس {by}",
+    categories: "دسته‌بندی هزینه‌ها", categoriesHint: "تشخیص خودکار از روی نام فروشگاه",
+    weekday: "خرج در روزهای هفته", weekdayHint: "میانگین خرج در هر روز هفته",
+    hourly: "ساعت خریدها", hourlyHint: "تعداد خریدها در هر ساعت شبانه‌روز",
+    sources: "منابع درآمد", sourcesHint: "بیشترین واریزها از کجا بوده", incomeTypes: "نوع درآمدها",
+    monthly: "خلاصه‌ی ماهانه", month: "ماه", net: "تراز", count: "تراکنش", amountsIn: "مبالغ به {u}",
+    biggestExp: "بزرگ‌ترین خرج‌ها", biggestInc: "بزرگ‌ترین واریزها", date: "تاریخ", amount: "مبلغ", party: "بابت / طرف حساب",
+    allMerchants: "همه‌ی فروشگاه‌ها و طرف حساب‌ها", sortHint: "روی عنوان ستون‌ها کلیک کنید تا مرتب شود",
+    allTxns: "همه‌ی تراکنش‌ها", txnsHint: "به ترتیب تاریخ · روی هر ردیف کلیک کنید تا متن اصلی پیامک را ببینید",
+    search: "جستجو: نام فروشگاه، مبلغ، شماره پیگیری...", searchM: "جستجوی نام یا دسته...", all: "همه", onlyIn: "فقط واریز", onlyOut: "فقط برداشت",
+    unknown: "نامشخص", allCats: "همه‌ی دسته‌ها", from: "از", to: "تا", items: "{n} مورد",
+    txnSummary: "{n} تراکنش · ورودی {i} · خروجی {o}", dateTime: "تاریخ و ساعت", day: "روز", type: "نوع", balanceCol: "موجودی",
+    category: "دسته", ref: "پیگیری", name: "نام", kind: "نوع", total: "جمع", avg: "میانگین", max: "بیشترین", share: "سهم", last: "آخرین",
+    credit: "واریز", debit: "برداشت", plusFee: "+ کارمزد {v}", line: "خط {n}", chainOk: "✓ موجودی تایید شد", chainBad: "⚠ موجودی با پیامک قبلی جور نیست",
+    viaTemplate: "قالب «{s}»", viaBuiltin: "خواننده‌ی داخلی", prev: "قبلی", next: "بعدی", page: "صفحه‌ی {p} از {n}",
+    others: "پیامک‌های کنار گذاشته‌شده", othersHint: "پیامک‌هایی که تراکنش مالی نبودند (رمز پویا، تبلیغ، ...) یا تکراری بودند",
+    nonFinancial: "پیامک‌های غیرمالی", duplicates: "پیامک‌های تکراری", otp: "رمز / کد", no_amount: "بدون مبلغ",
+    about: "پیامک‌ها چطور خوانده شدند", aboutTpl: "{n} پیامک با قالب «{s}» خوانده شد", aboutBuiltin: "{n} پیامک با خواننده‌ی داخلی (بر اساس برچسب‌ها) خوانده شد",
+    store: "فروشگاه", person: "شخص", other: "سایر", unnamed: "بدون نام", mainAccount: "حساب اصلی", account: "حساب",
+    tipIn: "ورودی", tipOut: "خروجی", tipCount: "تراکنش", tipTotal: "جمع", tipCountN: "تعداد", tipAvg: "میانگین", tipMax: "بیشترین",
+    tipShare: "سهم", tipFirstLast: "اولین / آخرین", tipAvgDay: "میانگین خرج روزانه", tipDaysInRange: "تعداد {w}‌ها در بازه", hourRange: "ساعت {a} تا {b}",
+    footer: "ساخته‌شده در {d} · همه‌ی پردازش روی رایانه‌ی خودتان انجام شده و هیچ داده‌ای ارسال نشده است.",
+    empty: "موردی نیست.",
+  },
+};
+const CATS = {
+  groceries: ["Groceries", "سوپرمارکت و خوراک"], dining: ["Restaurants & cafés", "رستوران و کافه"], transport: ["Transport", "حمل و نقل"],
+  online: ["Online shopping", "خرید اینترنتی"], bills: ["Bills & top-ups", "قبوض و شارژ"], health: ["Health", "سلامت و درمان"],
+  shopping: ["Clothing & beauty", "پوشاک و زیبایی"], entertainment: ["Entertainment", "تفریح و سرگرمی"], home: ["Home", "خانه و لوازم"],
+  education: ["Education", "آموزش"], loans: ["Loans & installments", "وام و اقساط"], fees: ["Bank fees", "کارمزد بانکی"],
+  transfer: ["Transfers", "انتقال وجه"], cash: ["Cash withdrawals", "برداشت نقدی"], other_purchase: ["Other purchases", "سایر خریدها"],
+  other: ["Other", "سایر"], salary: ["Salary", "حقوق و دستمزد"], interest: ["Interest", "سود بانکی"], refund: ["Refunds", "بازگشت وجه"],
+  loan_in: ["Loans", "وام"], transfer_in: ["Incoming transfers", "واریز و انتقال"], other_income: ["Other income", "سایر درآمدها"],
+};
+const INSIGHTS = {
+  net_pos: ["You earned {m} more than you spent in this period.", "در این بازه درآمد شما {m} بیشتر از خرجتان بوده است."],
+  net_neg: ["You spent {m} more than you earned in this period.", "در این بازه خرج شما {m} بیشتر از درآمدتان بوده است."],
+  savings: ["Savings rate: {p} of your income was not spent.", "نرخ پس‌انداز: {p} از درآمد خرج نشده است."],
+  top_day: ["Most expensive day: {d} ({w}) with {m} spent in {n} transactions.", "پرخرج‌ترین روز {d} ({w}) با {m} خرج در {n} تراکنش بود."],
+  top_store: ["You spent the most at “{s}”: {m} in {n} purchases ({p} of all spending).", "بیشترین مبلغ را در «{s}» خرج کرده‌اید: {m} در {n} خرید ({p} کل خریدها)."],
+  frequent_store: ["Most frequent merchant: “{s}”, {n} times.", "بیشترین دفعات خرید از «{s}» بوده: {n} بار."],
+  top_category: ["Biggest spending category: {c}, {p} of all expenses.", "بزرگ‌ترین دسته‌ی هزینه «{c}» است با {p} از کل خرج."],
+  top_weekday: ["On average you spend the most on {w}s ({m} per day).", "به‌طور میانگین روزهای {w} بیشترین خرج را دارید ({m} در هر {w})."],
+  top_hour: ["Most purchases happen between {h} and {h2} ({n} transactions).", "بیشتر خریدهای شما بین ساعت {h} تا {h2} انجام شده ({n} تراکنش)."],
+  biggest_expense: ["Largest single expense: {m} on {d} at “{s}”.", "بزرگ‌ترین خرج تکی: {m} در {d} بابت «{s}»."],
+  biggest_transfer: ["Largest single expense: {m} on {d}, a transfer to “{s}”.", "بزرگ‌ترین خرج تکی: {m} در {d}، انتقال به «{s}»."],
+  top_source: ["Biggest source of income: “{s}”, {m} in {n} payments.", "بیشترین درآمد از «{s}» بوده: {m} در {n} واریز."],
+  fees: ["Total bank fees: {m}.", "مجموع کارمزدهای بانکی: {m}."],
+};
+const WARNINGS = {
+  duplicates: ["{n} duplicate SMS were found and counted only once.", "{n} پیامک تکراری پیدا و فقط یک بار حساب شد."],
+  no_date: ["{n} transactions had no recognisable date: they are in the totals but not in the time charts.", "{n} تراکنش تاریخ قابل تشخیص نداشت؛ در جمع‌ها هست ولی در نمودارهای زمانی نیست."],
+  unknown_direction: ["{n} transactions could not be classified as income or expense and are not in the totals.", "{n} تراکنش نوع مشخصی (واریز/برداشت) نداشت و در جمع درآمد/خرج حساب نشده است."],
+  inferred_year: ["Some SMS had no year; {y} ({c}) was assumed.", "سال برخی پیامک‌ها در متن نبود و {y} ({c}) در نظر گرفته شد."],
+  chain_broken: ["For {n} of {t} transactions the balance doesn't follow from the previous SMS (some SMS may be missing).", "در {n} مورد از {t} تراکنش، موجودی با پیامک قبلی جور نیست (احتمالاً بعضی پیامک‌ها در فایل نیستند)."],
+  foreign_currency: ["{n} transactions in other currencies are listed in the table but excluded from the {c} totals.", "{n} تراکنش با ارز دیگر در جدول هست ولی در جمع‌های {c} حساب نشده است."],
+};
+const WD = { en: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+             fa: ["دوشنبه", "سه‌شنبه", "چهارشنبه", "پنجشنبه", "جمعه", "شنبه", "یکشنبه"] };
+const WD_SHORT = { en: ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"], fa: ["د", "س", "چ", "پ", "ج", "ش", "ی"] };
+const MONTHS = {
+  jalali: { en: ["Farvardin", "Ordibehesht", "Khordad", "Tir", "Mordad", "Shahrivar", "Mehr", "Aban", "Azar", "Dey", "Bahman", "Esfand"],
+            fa: ["فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور", "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند"] },
+  gregorian: { en: ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
+               fa: ["ژانویه", "فوریه", "مارس", "آوریل", "مه", "ژوئن", "ژوئیه", "اوت", "سپتامبر", "اکتبر", "نوامبر", "دسامبر"] },
+};
+
+// ======================================================================= state
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* ignore */ } },
+};
+const S = DATA.summary;
+let lang = ["en", "fa"].includes(store.get("sms-lang")) ? store.get("sms-lang") : S.lang;
+let calPref = ["jalali", "gregorian"].includes(store.get("sms-cal")) ? store.get("sms-cal") : S.calendar;
+let unit = store.get("sms-unit") === "toman" ? "toman" : "rial";
+const IRR = S.currency === "IRR";
+const cal = () => calPref === "jalali" || calPref === "gregorian" ? calPref : (lang === "fa" ? "jalali" : "gregorian");
+const L = () => I18N[lang];
+function t(key, p) {
+  let s = L()[key] ?? key;
+  if (p) s = s.replace(/\{(\w+)\}/g, (_, k) => p[k] ?? "");
+  return s;
+}
+const catName = id => (CATS[id] || [id, id])[lang === "fa" ? 1 : 0];
+
+// ======================================================================= formatting
+const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const locale = () => lang === "fa" ? "fa-IR" : "en-US";
+const DECIMALS = S.currency && !["IRR", "JPY", "KRW", "IDR", "VND"].includes(S.currency) ? 2 : 0;
+const num = (n, d) => new Intl.NumberFormat(locale(), { maximumFractionDigits: d ?? 0 }).format(n);
+const digits = s => lang === "fa" ? String(s).replace(/\d/g, d => "۰۱۲۳۴۵۶۷۸۹"[d]) : String(s);
+const pct = p => new Intl.NumberFormat(locale(), { style: "percent", maximumFractionDigits: 1 }).format(p);
+const conv = v => IRR && unit === "toman" ? v / 10 : v;
+const unitLabel = () => IRR ? t(unit) : (S.currency || "");
+const money = v => new Intl.NumberFormat(locale(), { minimumFractionDigits: DECIMALS, maximumFractionDigits: DECIMALS }).format(conv(v));
+const moneyU = v => `${money(v)}${unitLabel() ? ` <span class="unit">${esc(unitLabel())}</span>` : ""}`;
+const moneyT = v => `${money(v)} ${unitLabel()}`.trim();
+function compact(v) {
+  const x = conv(v);
+  if (lang === "en") return new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 }).format(x);
+  const a = Math.abs(x), s = x < 0 ? "−" : "", f = n => num(n, 1);
+  if (a >= 1e12) return s + f(a / 1e12) + " هزار میلیارد";
+  if (a >= 1e9) return s + f(a / 1e9) + " میلیارد";
+  if (a >= 1e6) return s + f(a / 1e6) + " میلیون";
+  if (a >= 1e3) return s + f(a / 1e3) + " هزار";
+  return s + num(a, DECIMALS);
+}
+
+// Gregorian -> Jalali (same algorithm as the Python side)
+function g2j(gy, gm, gd) {
+  const gdm = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
+  const gy2 = gm > 2 ? gy + 1 : gy;
+  let days = 355666 + 365 * gy + Math.floor((gy2 + 3) / 4) - Math.floor((gy2 + 99) / 100) + Math.floor((gy2 + 399) / 400) + gd + gdm[gm - 1];
+  let jy = -1595 + 33 * Math.floor(days / 12053);
+  days %= 12053;
+  jy += 4 * Math.floor(days / 1461);
+  days %= 1461;
+  if (days > 365) { jy += Math.floor((days - 1) / 365); days = (days - 1) % 365; }
+  const jm = days < 186 ? 1 + Math.floor(days / 31) : 7 + Math.floor((days - 186) / 30);
+  const jd = 1 + (days < 186 ? days % 31 : (days - 186) % 30);
+  return [jy, jm, jd];
+}
+const ymd = iso => { const [y, m, d] = iso.split("-").map(Number); return cal() === "jalali" ? g2j(y, m, d) : [y, m, d]; };
+const wdOf = iso => (new Date(iso + "T00:00:00Z").getUTCDay() + 6) % 7;        // 0 = Monday
+const monthName = m => MONTHS[cal()][lang][m - 1];
+function fmtDate(iso, long) {
+  if (!iso) return "—";
+  const [y, m, d] = ymd(iso);
+  if (long) return lang === "fa" ? `${num(d)} ${monthName(m)} ${digits(y)}` : `${d} ${monthName(m).slice(0, 3)} ${y}`;
+  return digits(`${y}/${String(m).padStart(2, "0")}/${String(d).padStart(2, "0")}`);
+}
+const weekOrder = () => lang === "fa" ? [5, 6, 0, 1, 2, 3, 4] : [0, 1, 2, 3, 4, 5, 6];
+const accountName = a => [a.bank, a.tail ? `${t("account")} …${digits(a.tail)}` : ""].filter(Boolean).join(" · ") || t("mainAccount");
+const partyName = x => x.name || x.party || `${t("unnamed")} (${catName(x.category)})`;
+
+// ======================================================================= helpers
+const NS = "http://www.w3.org/2000/svg";
+function el(tag, attrs, parent) {
+  const e = document.createElementNS(NS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+// SVG is left-to-right; Persian labels are wrapped in an RTL embedding so "۲ میلیون" keeps its order
+function label(parent, attrs, text) {
+  const e = el("text", attrs, parent);
+  e.textContent = lang === "fa" ? "‫" + text + "‬" : text;
+  return e;
+}
+function niceTicks(min, max, count) {
+  if (max === min) max = min + 1;
+  const step0 = (max - min) / (count || 5);
+  const mag = Math.pow(10, Math.floor(Math.log10(step0)));
+  const n = step0 / mag;
+  const step = (n < 1.5 ? 1 : n < 3 ? 2 : n < 7 ? 5 : 10) * mag;
+  const lo = Math.floor(min / step) * step, hi = Math.ceil(max / step) * step, out = [];
+  for (let v = lo; v <= hi + step / 2; v += step) out.push(Math.round(v / step) * step);
+  return out;
+}
+function barPath(x, y, w, h, r, top) {
+  if (h <= 0) return "";
+  r = Math.min(r, w / 2, h);
+  return top
+    ? `M${x},${y + h}V${y + r}Q${x},${y} ${x + r},${y}H${x + w - r}Q${x + w},${y} ${x + w},${y + r}V${y + h}Z`
+    : `M${x},${y}V${y + h - r}Q${x},${y + h} ${x + r},${y + h}H${x + w - r}Q${x + w},${y + h} ${x + w},${y + h - r}V${y}Z`;
+}
+const tip = document.getElementById("tip");
+function showTip(html, ev) {
+  tip.innerHTML = html;
+  tip.dir = lang === "fa" ? "rtl" : "ltr";
+  tip.style.opacity = 1;
+  const pad = 14, w = tip.offsetWidth, h = tip.offsetHeight;
+  let x = ev.clientX + pad, y = ev.clientY + pad;
+  if (x + w > window.innerWidth - 8) x = ev.clientX - w - pad;
+  if (y + h > window.innerHeight - 8) y = ev.clientY - h - pad;
+  tip.style.left = Math.max(8, x) + "px";
+  tip.style.top = Math.max(8, y) + "px";
+}
+const hideTip = () => { tip.style.opacity = 0; };
+const row = (k, v, sw) => `<div class="r"><span>${sw ? `<i class="sw ${sw}"></i>` : ""}${k}</span><b>${v}</b></div>`;
+const card = (title, hint, id, extra) =>
+  `<section class="card" id="${id}"><div class="card-head"><div><h2>${title}</h2><p class="hint">${hint || ""}</p></div>${extra || ""}</div><div class="body"></div></section>`;
+const body = id => document.querySelector(`#${id} .body`);
+function bind(sel, ev, fn) { document.querySelectorAll(sel).forEach(e => e.addEventListener(ev, fn)); }
+
+// ======================================================================= layout
+function layout() {
+  document.documentElement.lang = lang;
+  document.documentElement.dir = lang === "fa" ? "rtl" : "ltr";
+  document.title = t("title");
+  document.getElementById("title").textContent = t("title");
+  const p = S.first ? `${fmtDate(S.first, true)} – ${fmtDate(S.last, true)} · ${num(S.spanDays)} ${t("days")}` : t("noDates");
+  document.getElementById("period").innerHTML = esc(p) + (S.source ? ` · ${t("file")}: <bdi>${esc(S.source)}</bdi>` : "");
+  document.getElementById("foot").textContent = t("footer", { d: digits(S.generatedAt.replace("T", " ")) });
+  ["gregorian", "jalali", "rial", "toman"].forEach(k => document.querySelectorAll(`[data-cal="${k}"],[data-unit="${k}"]`).forEach(b => b.textContent = t(k)));
+  document.querySelectorAll("[data-theme-btn]").forEach(b => b.textContent = t(b.dataset.themeBtn));
+  document.getElementById("csvBtn").textContent = t("csv");
+  document.getElementById("printBtn").textContent = t("print");
+  document.getElementById("unitSeg").hidden = !IRR;
+
+  let h = `<div class="kpis" id="kpis"></div><div class="stats" id="stats"></div>`;
+  if (DATA.insights.length) h += card(t("insights"), t("insightsHint"), "insights");
+  if (DATA.warnings.length) h += `<section class="card warn" id="warnings"><h2>${t("warnings")}</h2><div class="body"></div></section>`;
+  h += card(t("daily"), t("dailyHint"), "daily", `<div class="legend"><span><i class="sw in"></i>${t("tipIn")}</span><span><i class="sw out"></i>${t("tipOut")}</span></div>`);
+  h += `<div class="grid2">${card(t("topDays"), t("topDaysHint"), "topdays")}${card(t("calendar"), t("calendarHint"), "calendar")}</div>`;
+  h += card(t("balance"), t("balanceHint"), "balance", `<div class="legend" id="balLegend"></div>`);
+  h += `<div class="grid2">${card(t("byMerchant"), "", "merchants", `<div class="seg" role="group"><button data-mm="total">${t("byAmount")}</button><button data-mm="count">${t("byCount")}</button></div>`)}${card(t("categories"), t("categoriesHint"), "cats")}</div>`;
+  h += `<div class="grid2">${card(t("weekday"), t("weekdayHint"), "weekday")}${card(t("hourly"), t("hourlyHint"), "hourly")}</div>`;
+  h += `<div class="grid2">${card(t("sources"), t("sourcesHint"), "sources")}${card(t("incomeTypes"), "", "incats")}</div>`;
+  h += card(t("monthly"), "", "monthly");
+  h += `<div class="grid2">${card(t("biggestExp"), "", "topexp")}${card(t("biggestInc"), "", "topinc")}</div>`;
+  h += card(t("allMerchants"), t("sortHint"), "mtable");
+  h += card(t("allTxns"), t("txnsHint"), "txns");
+  if (DATA.others.length || DATA.duplicates.length) h += card(t("others"), t("othersHint"), "others");
+  h += card(t("about"), "", "about");
+  app.innerHTML = h;
+  bind("[data-mm]", "click", e => { merchantMode = e.currentTarget.dataset.mm; renderMerchants(); });
+}
+
+// ======================================================================= sections
+function renderKpis() {
+  const net = S.net, acc = DATA.accounts[0];
+  const meta = (n, k, avg) => `${num(n)} ${t(k)} · ${t("perDay", { v: compact(avg) })}`;
+  document.getElementById("kpis").innerHTML = `
+    <div class="kpi"><div class="label"><i class="sw in"></i>${t("income")}</div><div class="value">${moneyU(S.incomeTotal)}</div><div class="meta">${meta(S.incomeCount, "credits", S.avgDailyIncome)}</div></div>
+    <div class="kpi"><div class="label"><i class="sw out"></i>${t("expense")}</div><div class="value">${moneyU(S.expenseTotal)}</div><div class="meta">${meta(S.expenseCount, "debits", S.avgDailyExpense)}</div></div>
+    <div class="kpi"><div class="label">${t(net >= 0 ? "netPos" : "netNeg")}</div><div class="value ${net >= 0 ? "pos" : "neg"}">${moneyU(Math.abs(net))}</div>
+      <div class="meta">${S.savingsRate == null ? "&nbsp;" : S.savingsRate >= 0 ? t("saved", { p: pct(S.savingsRate) }) : t("overspent", { p: pct(-S.savingsRate) })}</div></div>
+    <div class="kpi"><div class="label">${t("endBalance")}${acc && DATA.accounts.length > 1 ? ` (${esc(accountName(acc))})` : ""}</div><div class="value">${acc ? moneyU(acc.end) : "—"}</div>
+      <div class="meta">${acc ? `${t("start")}: ${compact(acc.start)} · ${t("lowest")}: ${compact(acc.min)}` : t("noBalance")}</div></div>`;
+  const st = [[t("totalSms"), num(S.totalMessages)], [t("transactions"), num(S.transactions)], [t("merchants"), num(S.merchantCount)],
+    [t("avgPurchase"), compact(S.avgExpense)], [t("activeDays"), `${num(S.activeDays)} ${t("of")} ${num(S.spanDays)}`],
+    [t("otherDup"), `${num(S.otherMessages)} / ${num(S.duplicates)}`]];
+  document.getElementById("stats").innerHTML = st.map(([l, v]) => `<div class="stat"><div class="label">${l}</div><div class="value">${v}</div></div>`).join("");
+}
+
+function fill(text, p) {
+  const v = {
+    m: () => `<b>${esc(moneyT(p.m))}</b>`, n: () => `<b>${num(p.n)}</b>`, p: () => `<b>${pct(p.p)}</b>`,
+    d: () => `<b>${esc(fmtDate(p.d, true))}</b>`, w: () => esc(WD[lang][p.w]), s: () => esc(p.s),
+    c: () => esc(p.c in CATS ? catName(p.c) : p.c === "j" ? t("jalali") : p.c === "g" ? t("gregorian") : p.c),
+    h: () => `<b>${num(p.h)}</b>`, h2: () => `<b>${num((p.h + 1) % 24)}</b>`, y: () => digits(p.y), t: () => num(p.t),
+  };
+  return esc(text).replace(/\{(\w+)\}/g, (_, k) => v[k] ? v[k]() : "");
+}
+function renderInsights() {
+  const b = body("insights");
+  if (b) b.innerHTML = `<ul class="insights">${DATA.insights.map(it => {
+    const tx = INSIGHTS[it.id];
+    if (!tx) return "";
+    return `<li class="${it.kind}"><span class="ic">${it.kind === "good" ? "▲" : it.kind === "bad" ? "▼" : "i"}</span><span>${fill(tx[lang === "fa" ? 1 : 0], it.p)}</span></li>`;
+  }).join("")}</ul>`;
+  const w = body("warnings");
+  if (w) w.innerHTML = `<ul>${DATA.warnings.map(x => WARNINGS[x.id] ? `<li>${fill(WARNINGS[x.id][lang === "fa" ? 1 : 0], x.p)}</li>` : "").join("")}</ul>`;
+}
+
+function renderDaily() {
+  const b = body("daily"), d = DATA.daily;
+  if (!d.length) { b.innerHTML = `<p class="empty">${t("noDates")}</p>`; return; }
+  b.innerHTML = `<div class="chart"></div>`;
+  const box = b.firstChild, W = Math.max(320, box.clientWidth), H = W < 520 ? 260 : 320;
+  const m = { t: 12, r: 8, b: 40, l: 70 }, pw = W - m.l - m.r, ph = H - m.t - m.b;
+  const ticks = niceTicks(-Math.max(0, ...d.map(x => x.out)), Math.max(0, ...d.map(x => x.in)), W < 520 ? 4 : 6);
+  const lo = ticks[0], hi = ticks[ticks.length - 1], y = v => m.t + (hi - v) / (hi - lo || 1) * ph;
+  const band = pw / d.length, bw = Math.max(1.5, Math.min(24, band * 0.7));
+  const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, height: H, role: "img", "aria-label": t("daily") }, box);
+  const g = el("g", { class: "grid" }, svg);
+  ticks.forEach(v => {
+    if (v) el("line", { x1: m.l, x2: W - m.r, y1: y(v), y2: y(v) }, g);
+    label(svg, { x: m.l - 8, y: y(v) + 4, "text-anchor": "end" }, v ? compact(Math.abs(v)) : num(0));
+  });
+  const hl = el("rect", { class: "hl", y: m.t, width: band, height: ph, visibility: "hidden" }, svg);
+  d.forEach((x, i) => {
+    const x0 = m.l + i * band + (band - bw) / 2;
+    if (x.in > 0) el("path", { d: barPath(x0, y(x.in), bw, y(0) - y(x.in), 4, true), fill: "var(--income)" }, svg);
+    if (x.out > 0) el("path", { d: barPath(x0, y(0), bw, y(-x.out) - y(0), 4, false), fill: "var(--expense)" }, svg);
+  });
+  el("line", { class: "base", x1: m.l, x2: W - m.r, y1: y(0), y2: y(0) }, svg);
+  const every = Math.max(1, Math.ceil(30 / band));
+  d.forEach((x, i) => {
+    const [, mo, dd] = ymd(x.d);
+    if (dd === 1 || i === 0) {
+      label(svg, { x: m.l + i * band, y: H - 6, "text-anchor": "start", style: "fill:var(--ink-2)" }, monthName(mo));
+      if (i) el("line", { class: "base", x1: m.l + i * band, x2: m.l + i * band, y1: H - m.b + 4, y2: H - 2, style: "opacity:.6" }, svg);
+    }
+    if (i % every === 0) label(svg, { x: m.l + i * band + band / 2, y: H - m.b + 16, "text-anchor": "middle" }, num(dd));
+  });
+  d.forEach((x, i) => {
+    const r = el("rect", { class: "hit", x: m.l + i * band, y: m.t, width: band, height: ph }, svg);
+    r.addEventListener("pointermove", ev => {
+      hl.setAttribute("x", m.l + i * band); hl.setAttribute("visibility", "visible");
+      showTip(`<div class="t">${esc(fmtDate(x.d, true))} · ${WD[lang][x.wd]}</div>` + row(t("tipIn"), esc(moneyT(x.in)), "in") +
+        row(t("tipOut"), esc(moneyT(x.out)), "out") + row(t("tipCount"), num(x.count)), ev);
+    });
+    r.addEventListener("pointerleave", () => { hl.setAttribute("visibility", "hidden"); hideTip(); });
+  });
+}
+
+function hbarList(b, items, o) {
+  if (!items.length) { b.innerHTML = `<p class="empty">${t("empty")}</p>`; return; }
+  const max = Math.max(...items.map(o.value)) || 1;
+  b.innerHTML = `<div class="hbars" style="${o.nameW ? `--name-w:${o.nameW}` : ""}">${items.map((it, i) => `
+    <div class="hb" data-i="${i}"><div class="nm" title="${esc(o.name(it))}"><span class="rank">${num(i + 1)}</span>${esc(o.name(it))}${o.sub ? ` <small>${esc(o.sub(it))}</small>` : ""}</div>
+    <div class="tr"><div class="fl ${o.cls || ""}" style="width:${(o.value(it) / max * 100).toFixed(2)}%"></div></div><div class="vl">${o.label(it)}</div></div>`).join("")}</div>`;
+  b.querySelectorAll(".hb").forEach(r => {
+    const it = items[+r.dataset.i];
+    r.addEventListener("pointermove", ev => showTip(o.tip(it), ev));
+    r.addEventListener("pointerleave", hideTip);
+  });
+}
+function renderTopDays() {
+  hbarList(body("topdays"), DATA.topDays, {
+    nameW: "48%", value: d => d.out, name: d => fmtDate(d.d, true), sub: d => WD[lang][d.wd], label: d => compact(d.out),
+    tip: d => `<div class="t">${esc(fmtDate(d.d, true))} · ${WD[lang][d.wd]}</div>` + row(t("tipOut"), esc(moneyT(d.out)), "out") +
+      row(t("tipCountN"), num(d.outCount)) + row(t("tipIn"), esc(moneyT(d.in)), "in"),
+  });
+}
+
+function renderCalendar() {
+  const b = body("calendar"), d = DATA.daily;
+  if (!d.length) { b.innerHTML = `<p class="empty">—</p>`; return; }
+  const max = Math.max(...d.map(x => x.out)) || 1, order = weekOrder(), months = [];
+  d.forEach((x, i) => {
+    const [y, mo] = ymd(x.d), key = `${y}-${mo}`;
+    if (!months.length || months[months.length - 1].key !== key) months.push({ key, y, mo, days: [] });
+    months[months.length - 1].days.push(i);
+  });
+  const level = v => v <= 0 ? 0 : v / max > .75 ? 4 : v / max > .45 ? 3 : v / max > .2 ? 2 : 1;
+  b.innerHTML = `<div class="cals">${months.map(mo => {
+    let cells = order.map(w => `<div class="wd">${WD_SHORT[lang][w]}</div>`).join("");
+    for (let k = 0; k < order.indexOf(d[mo.days[0]].wd); k++) cells += `<div class="c blank"></div>`;
+    cells += mo.days.map(i => `<div class="c l${level(d[i].out)}" data-i="${i}">${num(ymd(d[i].d)[2])}</div>`).join("");
+    return `<div class="cal"><div class="mh">${monthName(mo.mo)} ${digits(mo.y)}</div><div class="g">${cells}</div></div>`;
+  }).join("")}</div><div class="scale">${t("less")} <i></i><i class="l1"></i><i class="l2"></i><i class="l3"></i><i class="l4"></i> ${t("more")}</div>`;
+  b.querySelectorAll(".c[data-i]").forEach(c => {
+    const x = d[+c.dataset.i];
+    c.addEventListener("pointermove", ev => showTip(`<div class="t">${esc(fmtDate(x.d, true))} · ${WD[lang][x.wd]}</div>` +
+      row(t("tipOut"), esc(moneyT(x.out)), "out") + row(t("tipIn"), esc(moneyT(x.in)), "in") + row(t("tipCount"), num(x.count)), ev));
+    c.addEventListener("pointerleave", hideTip);
+  });
+}
+
+function renderBalance() {
+  const b = body("balance"), accs = DATA.accounts.slice(0, 3), legend = document.getElementById("balLegend");
+  const colors = ["var(--acc-1)", "var(--acc-2)", "var(--acc-3)"];
+  if (!accs.length) { b.innerHTML = `<p class="empty">${t("noBalance")}</p>`; legend.innerHTML = ""; return; }
+  legend.innerHTML = accs.length > 1 ? accs.map((a, i) => `<span><i class="ln" style="background:${colors[i]}"></i>${esc(accountName(a))}</span>`).join("") : "";
+  b.innerHTML = `<div class="chart"></div>` + (DATA.accounts.length > 3 ? `<p class="hint">${t("onlyTop3")}</p>` : "");
+  const box = b.firstChild, W = Math.max(320, box.clientWidth), H = W < 520 ? 240 : 300;
+  const m = { t: 14, r: 16, b: 30, l: 70 }, pw = W - m.l - m.r, ph = H - m.t - m.b;
+  const all = accs.flatMap(a => a.points);
+  const t0 = Math.min(...all.map(p => p.ts)), t1 = Math.max(...all.map(p => p.ts));
+  const ticks = niceTicks(Math.min(...all.map(p => p.v)), Math.max(...all.map(p => p.v)), 5);
+  const lo = ticks[0], hi = ticks[ticks.length - 1];
+  const x = ts => m.l + (t1 === t0 ? pw / 2 : (ts - t0) / (t1 - t0) * pw), y = v => m.t + (hi - v) / (hi - lo || 1) * ph;
+  const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, height: H, role: "img", "aria-label": t("balance") }, box);
+  const g = el("g", { class: "grid" }, svg);
+  ticks.forEach(v => { el("line", { x1: m.l, x2: W - m.r, y1: y(v), y2: y(v) }, g); label(svg, { x: m.l - 8, y: y(v) + 4, "text-anchor": "end" }, compact(v)); });
+  el("line", { class: "base", x1: m.l, x2: W - m.r, y1: H - m.b, y2: H - m.b }, svg);
+  const dayMs = 86400000, step = Math.max(1, Math.ceil(Math.max(1, Math.round((t1 - t0) / dayMs)) / Math.max(2, Math.floor(pw / 90))));
+  for (let k = 0; k < DATA.daily.length; k += step) {
+    const ts = S.firstTs + k * dayMs;
+    if (ts < t0 - dayMs || ts > t1) continue;
+    const xx = x(Math.max(ts, t0)), [, mo, dd] = ymd(DATA.daily[k].d);
+    el("line", { class: "base", x1: xx, x2: xx, y1: H - m.b, y2: H - m.b + 4 }, svg);
+    label(svg, { x: xx, y: H - m.b + 18, "text-anchor": "middle" }, `${num(dd)} ${monthName(mo).slice(0, lang === "en" ? 3 : 20)}`);
+  }
+  accs.forEach((a, i) => {
+    let p = "";
+    a.points.forEach((pt, k) => { const X = x(pt.ts).toFixed(1), Y = y(pt.v).toFixed(1); p += k ? `H${X}V${Y}` : `M${X},${Y}`; });
+    el("path", { d: p, fill: "none", stroke: colors[i], "stroke-width": 2, "stroke-linejoin": "round", "stroke-linecap": "round" }, svg);
+    const last = a.points[a.points.length - 1];
+    el("circle", { cx: x(last.ts), cy: y(last.v), r: 4.5, fill: colors[i], stroke: "var(--surface)", "stroke-width": 2 }, svg);
+  });
+  const cross = el("line", { y1: m.t, y2: H - m.b, stroke: "var(--axis)", "stroke-width": 1, visibility: "hidden" }, svg);
+  const dots = accs.map((a, i) => el("circle", { r: 4.5, fill: colors[i], stroke: "var(--surface)", "stroke-width": 2, visibility: "hidden" }, svg));
+  const hit = el("rect", { class: "hit", x: m.l, y: m.t, width: pw, height: ph }, svg);
+  const at = (pts, ts) => { let lo2 = 0, hi2 = pts.length - 1, ans = -1; while (lo2 <= hi2) { const mid = (lo2 + hi2) >> 1; if (pts[mid].ts <= ts) { ans = mid; lo2 = mid + 1; } else hi2 = mid - 1; } return ans; };
+  hit.addEventListener("pointermove", ev => {
+    const r = svg.getBoundingClientRect(), px = (ev.clientX - r.left) * (W / r.width), ts = t0 + (px - m.l) / pw * (t1 - t0);
+    cross.setAttribute("x1", px); cross.setAttribute("x2", px); cross.setAttribute("visibility", "visible");
+    let html = "", head = "";
+    accs.forEach((a, i) => {
+      const k = at(a.points, ts);
+      if (k < 0) { dots[i].setAttribute("visibility", "hidden"); return; }
+      const pt = a.points[k];
+      if (!head) head = `${fmtDate(pt.d, true)} ${digits(pt.t)}`;
+      dots[i].setAttribute("cx", x(pt.ts)); dots[i].setAttribute("cy", y(pt.v)); dots[i].setAttribute("visibility", "visible");
+      html += `<div class="r"><span><i class="ln" style="width:12px;background:${colors[i]}"></i>${esc(accountName(a))}</span><b>${esc(moneyT(pt.v))}</b></div>`;
+    });
+    if (html) showTip(`<div class="t">${esc(head)}</div>${html}`, ev); else hideTip();
+  });
+  hit.addEventListener("pointerleave", () => { cross.setAttribute("visibility", "hidden"); dots.forEach(d => d.setAttribute("visibility", "hidden")); hideTip(); });
+}
+
+let merchantMode = "total";
+function renderMerchants() {
+  document.querySelectorAll("[data-mm]").forEach(b => b.setAttribute("aria-pressed", b.dataset.mm === merchantMode));
+  const stores = DATA.merchants.filter(x => x.kind === "store");
+  const list = (stores.length ? stores : DATA.merchants).slice()
+    .sort((a, c) => merchantMode === "count" ? c.count - a.count || c.total - a.total : c.total - a.total).slice(0, 12);
+  document.querySelector("#merchants .hint").textContent = t("merchantHint", { n: num(stores.length), by: t(merchantMode === "count" ? "byCount" : "byAmount") });
+  hbarList(body("merchants"), list, {
+    value: x => merchantMode === "count" ? x.count : x.total, name: partyName, sub: x => catName(x.category),
+    label: x => merchantMode === "count" ? `${num(x.count)}×` : compact(x.total),
+    tip: x => `<div class="t">${esc(partyName(x))}</div>` + row(t("tipTotal"), esc(moneyT(x.total)), "out") + row(t("tipCountN"), num(x.count)) +
+      row(t("tipAvg"), esc(moneyT(x.avg))) + row(t("tipMax"), esc(moneyT(x.max))) + row(t("tipShare"), pct(x.share)) +
+      row(t("tipFirstLast"), `${fmtDate(x.first)} / ${fmtDate(x.last)}`),
+  });
+}
+function catList(id, list, cls) {
+  const total = list.reduce((s, c) => s + c.total, 0) || 1;
+  hbarList(body(id), list, {
+    cls, value: x => x.total, name: x => catName(x.id), label: x => `${compact(x.total)} · ${pct(x.total / total)}`,
+    tip: x => `<div class="t">${esc(catName(x.id))}</div>` + row(t("tipTotal"), esc(moneyT(x.total)), cls || "out") + row(t("tipCountN"), num(x.count)) + row(t("tipShare"), pct(x.total / total)),
+  });
+}
+function renderSources() {
+  hbarList(body("sources"), DATA.sources.slice(0, 10), {
+    cls: "in", value: x => x.total, name: partyName, sub: x => `${num(x.count)}×`, label: x => compact(x.total),
+    tip: x => `<div class="t">${esc(partyName(x))}</div>` + row(t("tipTotal"), esc(moneyT(x.total)), "in") + row(t("tipCountN"), num(x.count)) +
+      row(t("tipAvg"), esc(moneyT(x.avg))) + row(t("tipShare"), pct(x.share)),
+  });
+}
+
+function columns(b, items, o) {
+  b.innerHTML = `<div class="chart"></div>`;
+  const box = b.firstChild, W = Math.max(300, box.clientWidth), H = 220;
+  const m = { t: 22, r: 8, b: 30, l: o.left || 64 }, pw = W - m.l - m.r, ph = H - m.t - m.b;
+  const vals = items.map(o.value), max = Math.max(...vals);
+  if (!max) { b.innerHTML = `<p class="empty">${t("empty")}</p>`; return; }
+  const ticks = niceTicks(0, max, 4), hi = ticks[ticks.length - 1], y = v => m.t + (hi - v) / hi * ph;
+  const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, height: H, role: "img" }, box);
+  const g = el("g", { class: "grid" }, svg);
+  ticks.forEach(v => { if (v) el("line", { x1: m.l, x2: W - m.r, y1: y(v), y2: y(v) }, g); label(svg, { x: m.l - 8, y: y(v) + 4, "text-anchor": "end" }, o.axis(v)); });
+  const band = pw / items.length, bw = Math.min(24, band * 0.66), imax = vals.indexOf(max);
+  const hl = el("rect", { class: "hl", y: m.t, width: band, height: ph, visibility: "hidden" }, svg);
+  items.forEach((it, i) => {
+    const x0 = m.l + i * band + (band - bw) / 2, v = vals[i];
+    el("path", { d: barPath(x0, y(v), bw, y(0) - y(v), 4, true), fill: "var(--expense)" }, svg);
+    if (i === imax) label(svg, { x: x0 + bw / 2, y: y(v) - 6, "text-anchor": "middle", style: "fill:var(--ink);font-weight:700" }, o.axis(v));
+    if (items.length <= 12 || i % 3 === 0) label(svg, { x: m.l + i * band + band / 2, y: H - m.b + 16, "text-anchor": "middle" }, o.name(it, band));
+  });
+  el("line", { class: "base", x1: m.l, x2: W - m.r, y1: y(0), y2: y(0) }, svg);
+  items.forEach((it, i) => {
+    const r = el("rect", { class: "hit", x: m.l + i * band, y: m.t, width: band, height: ph }, svg);
+    r.addEventListener("pointermove", ev => { hl.setAttribute("x", m.l + i * band); hl.setAttribute("visibility", "visible"); showTip(o.tip(it), ev); });
+    r.addEventListener("pointerleave", () => { hl.setAttribute("visibility", "hidden"); hideTip(); });
+  });
+}
+function renderWeekday() {
+  columns(body("weekday"), weekOrder().map(i => DATA.weekday[i]), {
+    value: w => w.avg, axis: v => compact(v), name: (w, band) => band < 48 ? WD_SHORT[lang][w.wd] : WD[lang][w.wd],
+    tip: w => `<div class="t">${WD[lang][w.wd]}</div>` + row(t("tipAvgDay"), esc(moneyT(w.avg)), "out") + row(t("tipTotal"), esc(moneyT(w.out))) +
+      row(t("tipCountN"), num(w.count)) + row(t("tipDaysInRange", { w: WD[lang][w.wd] }), num(w.days)),
+  });
+}
+function renderHourly() {
+  columns(body("hourly"), DATA.hourly, {
+    left: 40, value: h => h.count, axis: v => num(v), name: h => num(h.hour),
+    tip: h => `<div class="t">${t("hourRange", { a: num(h.hour), b: num((h.hour + 1) % 24) })}</div>` + row(t("tipCountN"), num(h.count), "out") + row(t("tipTotal"), esc(moneyT(h.out))),
+  });
+}
+
+function renderMonthly() {
+  const b = body("monthly"), months = [];
+  DATA.daily.forEach(d => {
+    const [y, m] = ymd(d.d), key = `${y}-${m}`;
+    if (!months.length || months[months.length - 1].key !== key) months.push({ key, y, m, in: 0, out: 0, count: 0 });
+    const x = months[months.length - 1];
+    x.in += d.in; x.out += d.out; x.count += d.count;
+  });
+  if (!months.length) { b.innerHTML = `<p class="empty">—</p>`; return; }
+  b.innerHTML = `<div class="tbl-wrap"><table><thead><tr><th>${t("month")}</th><th>${t("tipIn")}</th><th>${t("tipOut")}</th><th>${t("net")}</th><th>${t("count")}</th></tr></thead><tbody>${
+    months.map(x => `<tr><td>${monthName(x.m)} ${digits(x.y)}</td><td class="num">${money(x.in)}</td><td class="num">${money(x.out)}</td>
+      <td class="num ${x.in >= x.out ? "pos" : "neg"}">${x.in >= x.out ? "▲" : "▼"} ${money(Math.abs(x.in - x.out))}</td><td class="num">${num(x.count)}</td></tr>`).join("")
+  }</tbody></table></div><p class="hint" style="margin:8px 0 0">${t("amountsIn", { u: unitLabel() || "—" })}</p>`;
+}
+function renderTop(id, list) {
+  const b = body(id);
+  if (!list.length) { b.innerHTML = `<p class="empty">${t("empty")}</p>`; return; }
+  b.innerHTML = `<div class="tbl-wrap"><table><thead><tr><th>${t("date")}</th><th>${t("amount")}</th><th>${t("party")}</th></tr></thead><tbody>${list.map(x =>
+    `<tr><td>${fmtDate(x.d)} <small style="color:var(--muted)">${digits(x.time)}</small></td><td class="num">${money(x.amount)}</td><td class="long">${esc(partyName(x))}</td></tr>`).join("")}</tbody></table></div>`;
+}
+
+function sortable(host, state, render) {
+  host.querySelectorAll("th[data-k]").forEach(th => {
+    th.classList.add("sortable");
+    if (th.dataset.k === state.key) th.classList.add(state.dir > 0 ? "sorted-asc" : "sorted-desc");
+    th.addEventListener("click", () => {
+      if (state.key === th.dataset.k) state.dir = -state.dir; else { state.key = th.dataset.k; state.dir = th.dataset.num ? -1 : 1; }
+      render();
+    });
+  });
+}
+function keepFocus(host, id, fn) {
+  const inp = host.querySelector(id);
+  inp.addEventListener(inp.tagName === "SELECT" ? "change" : "input", () => {
+    const pos = inp.selectionStart;
+    fn(inp.value);
+    if (inp.tagName !== "SELECT") { const n = document.querySelector(id); n.focus(); try { n.setSelectionRange(pos, pos); } catch (e) { /* noop */ } }
+  });
+}
+const cmp = (a, c, k) => typeof a[k] === "number" || typeof c[k] === "number" ? (a[k] || 0) - (c[k] || 0) : String(a[k] ?? "").localeCompare(String(c[k] ?? ""), lang);
+
+const mState = { key: "total", dir: -1, q: "" };
+function renderMerchantTable() {
+  const b = body("mtable"), q = mState.q.trim().toLowerCase();
+  const maxShare = Math.max(...DATA.merchants.map(m => m.share), 0.0001);
+  const list = DATA.merchants.filter(m => !q || partyName(m).toLowerCase().includes(q) || catName(m.category).toLowerCase().includes(q))
+    .sort((a, c) => cmp(a, c, mState.key) * mState.dir);
+  b.innerHTML = `<div class="tools"><input type="search" id="mq" placeholder="${t("searchM")}" value="${esc(mState.q)}"><span class="hint" style="margin:0">${t("items", { n: num(list.length) })} · ${t("amountsIn", { u: unitLabel() || "—" })}</span></div>
+  <div class="tbl-wrap" style="max-height:520px"><table><thead><tr><th data-k="name">${t("name")}</th><th data-k="kind">${t("kind")}</th><th data-k="category">${t("category")}</th>
+    <th data-k="count" data-num="1">${t("tipCountN")}</th><th data-k="total" data-num="1">${t("total")}</th><th data-k="avg" data-num="1">${t("avg")}</th>
+    <th data-k="max" data-num="1">${t("max")}</th><th data-k="share" data-num="1">${t("share")}</th><th data-k="last">${t("last")}</th></tr></thead><tbody>${list.map(m => `
+    <tr><td class="long">${esc(partyName(m))}</td><td><span class="badge">${t(m.kind)}</span></td><td>${esc(catName(m.category))}</td><td class="num">${num(m.count)}</td>
+    <td class="num">${money(m.total)}</td><td class="num">${money(m.avg)}</td><td class="num">${money(m.max)}</td>
+    <td class="num">${pct(m.share)}<span class="share"><i style="width:${(m.share / maxShare * 100).toFixed(1)}%"></i></span></td><td>${fmtDate(m.last)}</td></tr>`).join("")}</tbody></table></div>`;
+  sortable(b, mState, renderMerchantTable);
+  keepFocus(b, "#mq", v => { mState.q = v; renderMerchantTable(); });
+}
+
+const tState = { key: "ts", dir: 1, q: "", dirF: "", cat: "", from: "", to: "", page: 0, open: -1 };
+const PAGE = 50;
+function renderTxns() {
+  const b = body("txns"), q = tState.q.trim().toLowerCase();
+  const asIso = s => {           // the date filter is typed in the visible calendar; compare as yyyy/mm/dd strings
+    s = s.replace(/[۰-۹]/g, d => "۰۱۲۳۴۵۶۷۸۹".indexOf(d)).replace(/-/g, "/");
+    const p = s.split("/").map(Number);
+    return p.length === 3 && p.every(n => n > 0) ? `${p[0]}/${String(p[1]).padStart(2, "0")}/${String(p[2]).padStart(2, "0")}` : "";
+  };
+  const shown = x => x.d ? fmtDate(x.d).replace(/[۰-۹]/g, d => "۰۱۲۳۴۵۶۷۸۹".indexOf(d)) : "";
+  const from = asIso(tState.from), to = asIso(tState.to);
+  let list = DATA.transactions.map((x, i) => Object.assign({ i }, x)).filter(x =>
+    (!tState.dirF || (x.dir || "unk") === tState.dirF) && (!tState.cat || x.category === tState.cat) &&
+    (!from || (x.d && shown(x) >= from)) && (!to || (x.d && shown(x) <= to)) &&
+    (!q || [x.party, x.desc, catName(x.category), x.tracking, x.raw, String(x.amount)].some(s => s && String(s).toLowerCase().includes(q))));
+  if (tState.key !== "ts") list.sort((a, c) => cmp(a, c, tState.key) * tState.dir); else if (tState.dir < 0) list.reverse();
+  const pages = Math.max(1, Math.ceil(list.length / PAGE));
+  tState.page = Math.min(tState.page, pages - 1);
+  const slice = list.slice(tState.page * PAGE, tState.page * PAGE + PAGE);
+  const local = list.filter(x => !x.foreign);
+  const sIn = local.filter(x => x.dir === "in").reduce((s, x) => s + x.amount, 0);
+  const sOut = local.filter(x => x.dir === "out").reduce((s, x) => s + x.amount + (x.fee || 0), 0);
+  const cats = [...new Set(DATA.transactions.map(x => x.category))].sort((a, c) => catName(a).localeCompare(catName(c), lang));
+  const badge = x => x.dir === "in" ? `<span class="badge in">${t("credit")}</span>` : x.dir === "out" ? `<span class="badge out">${t("debit")}</span>` : `<span class="badge">${t("unknown")}</span>`;
+  const amt = x => x.foreign ? `${new Intl.NumberFormat(locale(), { maximumFractionDigits: 2 }).format(x.amount)} ${esc(x.currency || "")}` : money(x.amount);
+  const ph = cal() === "jalali" ? "1405/01/01" : "2026-01-01";
+  b.innerHTML = `<div class="tools">
+    <input type="search" id="tq" placeholder="${t("search")}" value="${esc(tState.q)}">
+    <select id="tdir"><option value="">${t("all")}</option><option value="in">${t("onlyIn")}</option><option value="out">${t("onlyOut")}</option><option value="unk">${t("unknown")}</option></select>
+    <select id="tcat"><option value="">${t("allCats")}</option>${cats.map(c => `<option value="${esc(c)}">${esc(catName(c))}</option>`).join("")}</select>
+    <input class="d" id="tfrom" placeholder="${t("from")} ${ph}" value="${esc(tState.from)}"><input class="d" id="tto" placeholder="${t("to")} ${ph}" value="${esc(tState.to)}">
+  </div>
+  <p class="hint" style="margin:0 0 8px">${t("txnSummary", { n: num(list.length), i: compact(sIn), o: compact(sOut) })} ${esc(unitLabel())}</p>
+  <div class="tbl-wrap"><table><thead><tr><th data-k="ts">${t("dateTime")}</th><th>${t("day")}</th><th data-k="dir">${t("type")}</th>
+    <th data-k="amount" data-num="1">${t("amount")}</th><th data-k="balance" data-num="1">${t("balanceCol")}</th><th data-k="party">${t("party")}</th>
+    <th data-k="category">${t("category")}</th><th>${t("ref")}</th></tr></thead><tbody>${slice.map(x => `
+    <tr class="clickable" data-i="${x.i}"><td>${x.d ? fmtDate(x.d) : "—"} <small style="color:var(--muted)">${digits(x.time)}</small></td><td>${x.d ? WD[lang][wdOf(x.d)] : ""}</td>
+    <td>${badge(x)}</td><td class="num">${amt(x)}${x.fee ? ` <small style="color:var(--muted)">${t("plusFee", { v: money(x.fee) })}</small>` : ""}</td>
+    <td class="num">${x.balance != null ? (x.foreign ? num(x.balance, 2) : money(x.balance)) : "—"}</td><td class="long">${esc(partyName(x))}</td><td>${esc(catName(x.category))}</td>
+    <td class="num">${esc(x.tracking || "—")}</td></tr>
+    ${tState.open === x.i ? `<tr class="raw"><td colspan="8">${esc(x.raw)}<br><small>${t("line", { n: num(x.line) })} · ${x.template ? t("viaTemplate", { s: esc(x.template) }) : t("viaBuiltin")}${x.bank ? " · " + esc(x.bank) : ""}${x.account ? " · " + esc(x.account) : ""}${x.chainOk === false ? " · " + t("chainBad") : x.chainOk ? " · " + t("chainOk") : ""}</small></td></tr>` : ""}`).join("")}
+  </tbody></table></div>
+  <div class="pager"><button class="btn" id="prev" ${tState.page === 0 ? "disabled" : ""}>${t("prev")}</button><span>${t("page", { p: num(tState.page + 1), n: num(pages) })}</span><button class="btn" id="next" ${tState.page >= pages - 1 ? "disabled" : ""}>${t("next")}</button></div>`;
+  b.querySelector("#tdir").value = tState.dirF;
+  b.querySelector("#tcat").value = tState.cat;
+  sortable(b, tState, () => { tState.page = 0; renderTxns(); });
+  [["#tq", "q"], ["#tdir", "dirF"], ["#tcat", "cat"], ["#tfrom", "from"], ["#tto", "to"]].forEach(([id, k]) => keepFocus(b, id, v => { tState[k] = v; tState.page = 0; renderTxns(); }));
+  b.querySelector("#prev").addEventListener("click", () => { tState.page--; renderTxns(); });
+  b.querySelector("#next").addEventListener("click", () => { tState.page++; renderTxns(); });
+  b.querySelectorAll("tr.clickable").forEach(tr => tr.addEventListener("click", () => { const i = +tr.dataset.i; tState.open = tState.open === i ? -1 : i; renderTxns(); }));
+}
+
+function renderOthers() {
+  const b = body("others");
+  if (!b) return;
+  const block = (items, title) => items.length ? `<details><summary>${title} (${num(items.length)})</summary>${items.map(o =>
+    `<pre><span class="lnr">${t("line", { n: num(o.line) })}${o.reason ? " · " + t(o.reason) : ""}</span>${esc(o.text)}</pre>`).join("")}</details>` : "";
+  b.innerHTML = block(DATA.others, t("nonFinancial")) + block(DATA.duplicates, t("duplicates"));
+}
+function renderAbout() {
+  const hits = Object.entries(S.templateHits || {}).sort((a, c) => c[1] - a[1]);
+  body("about").innerHTML = `<ul>${hits.map(([k, n]) => `<li>${k ? t("aboutTpl", { n: num(n), s: esc(k) }) : t("aboutBuiltin", { n: num(n) })}</li>`).join("")}</ul>`;
+}
+
+// ======================================================================= CSV & controls
+document.getElementById("csvBtn").addEventListener("click", () => {
+  const head = ["date", "jalali_date", "time", "direction", "amount", "currency", "fee", "balance", "merchant_or_party", "category", "description", "reference", "bank", "account", "template"];
+  const q = v => `"${String(v == null ? "" : v).replace(/"/g, '""')}"`;
+  const jal = iso => { if (!iso) return ""; const [y, m, d] = iso.split("-").map(Number); const j = g2j(y, m, d); return `${j[0]}/${String(j[1]).padStart(2, "0")}/${String(j[2]).padStart(2, "0")}`; };
+  const lines = [head.join(",")].concat(DATA.transactions.map(x => [x.d, jal(x.d), x.time, x.dir || "", x.amount, x.currency, x.fee || 0, x.balance,
+    partyName(x), catName(x.category), x.desc, x.tracking, x.bank, x.account, x.template].map(q).join(",")));
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob(["﻿" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" }));
+  a.download = "transactions.csv";
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+});
+document.getElementById("printBtn").addEventListener("click", () => window.print());
+const pressed = (sel, attr, val) => document.querySelectorAll(sel).forEach(b => b.setAttribute("aria-pressed", b.getAttribute(attr) === val));
+bind("[data-lang]", "click", e => { lang = e.currentTarget.dataset.lang; store.set("sms-lang", lang); renderAll(true); });
+bind("[data-cal]", "click", e => { calPref = e.currentTarget.dataset.cal; store.set("sms-cal", calPref); renderAll(true); });
+bind("[data-unit]", "click", e => { unit = e.currentTarget.dataset.unit; store.set("sms-unit", unit); renderAll(false); });
+bind("[data-theme-btn]", "click", e => {
+  const v = e.currentTarget.dataset.themeBtn;
+  if (v === "auto") document.documentElement.removeAttribute("data-theme"); else document.documentElement.setAttribute("data-theme", v);
+  store.set("sms-theme", v); pressed("[data-theme-btn]", "data-theme-btn", v);
+});
+const savedTheme = store.get("sms-theme");
+if (savedTheme === "light" || savedTheme === "dark") document.documentElement.setAttribute("data-theme", savedTheme);
+pressed("[data-theme-btn]", "data-theme-btn", savedTheme === "light" || savedTheme === "dark" ? savedTheme : "auto");
+
+function renderCharts() { renderDaily(); renderBalance(); renderWeekday(); renderHourly(); }
+function renderAll(full) {
+  if (full) layout();
+  pressed("[data-lang]", "data-lang", lang);
+  pressed("[data-cal]", "data-cal", cal());
+  pressed("[data-unit]", "data-unit", unit);
+  renderKpis(); renderInsights(); renderTopDays(); renderCalendar(); renderMerchants();
+  catList("cats", DATA.categories); catList("incats", DATA.incomeCategories, "in"); renderSources();
+  renderMonthly(); renderTop("topexp", DATA.topExpenses); renderTop("topinc", DATA.topIncomes);
+  renderMerchantTable(); renderTxns(); renderOthers(); renderAbout(); renderCharts();
+}
+renderAll(true);
+let rt, lastW = window.innerWidth;
+window.addEventListener("resize", () => { if (window.innerWidth === lastW) return; lastW = window.innerWidth; clearTimeout(rt); rt = setTimeout(renderCharts, 120); });
+})();
+</script>
+</body>
+</html>

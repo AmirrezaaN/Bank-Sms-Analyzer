@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bank-sms-analyzer"
+version = "1.0.0"
+description = "Turn copied bank SMS (any language) into a bilingual interactive HTML report of income and expenses."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+dependencies = []
+keywords = ["bank", "sms", "expenses", "budget", "personal-finance", "jalali", "persian", "report"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Topic :: Office/Business :: Financial",
+    "Natural Language :: English",
+    "Natural Language :: Persian",
+]
+
+[project.scripts]
+sms-analyzer = "sms_analyzer.cli:main"
+
+[tool.setuptools]
+packages = ["sms_analyzer"]
+
+[tool.setuptools.package-data]
+sms_analyzer = ["report_template.html"]
